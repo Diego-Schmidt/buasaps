@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Splash Screen</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #ffffff;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      text-align: center;
+    }
+
+    /* Estilos para la imagen */
+    .splash-image {
+      width: 150px;
+      height: auto;
+      opacity: 0;
+      animation: fadeIn 2s forwards; /* Animación de desvanecimiento */
+    }
+
+    /* Estilos para el texto */
+    h1 {
+      color: #007bff;
+      opacity: 0;
+      animation: fadeIn 3s forwards; /* Animación de desvanecimiento */
+      animation-delay: 1s; /* Espera un segundo antes de aparecer */
+    }
+
+    /* Definición de la animación de desvanecimiento */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.8); /* Un pequeño zoom */
+      }
+      to {
+        opacity: 1;
+        transform: scale(1); /* Volver al tamaño original */
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Imagen del ícono de la aplicación -->
+    <img class="splash-image" src="assets/icon.png" alt="Logo de Buasaps">
+
+    <!-- Texto que aparece después -->
+    <h1>Cargando Buasaps...</h1>
+  </div>
+</body>
+</html>

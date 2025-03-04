@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buasaps - A super simple multi WhatsApp web admin</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    #app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+    }
+
+    #tab-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    #accountTabs {
+      margin-bottom: 0;
+      width: 100%;
+      flex-wrap: nowrap;
+    }
+
+    .nav-tabs {
+      display: flex;
+      justify-content: flex-start;
+      width: 100%;
+    }
+
+    .tab-item {
+      display: flex;
+      align-items: center;
+    }
+
+    .tab-item .close-tab-btn {
+      margin-left: 8px;
+      color: #ff0000;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .tab-item .edit-tab-btn {
+      margin-left: 8px;
+      color: #007bff;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: red;
+      display: inline-block;
+      margin-right: 5px;
+    }
+
+    .status-indicator.connected {
+      background-color: green;
+    }
+
+    #myTabContent {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    webview {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    #addAccountBtn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: transparent;
+      border: none;
+      color: #007bff;
+      cursor: pointer;
+      font-size: 1.5rem;
+    }
+
+    #addAccountBtn:hover {
+      color: #0056b3;
+    }
+
+    .dark-mode {
+      background-color: #121212;
+      color: #ffffff;
+    }
+
+    .light-mode {
+      background-color: #ffffff;
+      color: #000000;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-container">
+    <div class="d-flex align-items-center p-2">
+      <button id="addAccountBtn" class="me-2">
+        <i class="bi bi-plus-circle"></i>
+      </button>
+      <ul class="nav nav-tabs" id="accountTabs" role="tablist"></ul>
+    </div>
+
+    <div id="tab-container" class="container-fluid">
+      <div class="tab-content" id="myTabContent"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const { ipcRenderer, shell } = require('electron');
+    let tabCount = 0;
+
+    const chromeUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36";
+
+    function loadTabsState() {
+      const savedTabs = localStorage.getItem('tabs');
+      return savedTabs ? JSON.parse(savedTabs) : [];
+    }
+
+    function saveTabsState() {
+      const tabs = [];
+      document.querySelectorAll('#accountTabs .nav-item').forEach((tab, index) => {
+        const tabLink = tab.querySelector('.nav-link');
+        const tabName = tabLink.textContent;
+        tabs.push({
+          id: `tab${index + 1}`,
+          name: tabName,
+          contentId: `whatsapp${index + 1}`
+        });
+      });
+      localStorage.setItem('tabs', JSON.stringify(tabs));
+    }
+
+    function closeTab(tabId, contentId) {
+      const tabElement = document.getElementById(tabId);
+      const contentElement = document.getElementById(contentId);
+
+      if (tabElement && contentElement) {
+        tabElement.remove();
+        contentElement.remove();
+
+        const remainingTabs = document.querySelectorAll('#accountTabs .nav-link');
+        if (remainingTabs.length > 0) {
+          remainingTabs[0].classList.add('active');
+          const firstContentId = remainingTabs[0].getAttribute('href').replace('#', '');
+          document.getElementById(firstContentId).classList.add('show', 'active');
+        }
+
+        tabCount--;
+        saveTabsState();
+      }
+    }
+
+    function applyUserAgent(webview) {
+      webview.addEventListener('did-attach', () => {
+        webview.setUserAgent(chromeUserAgent);
+      });
+
+      webview.addEventListener('did-start-loading', () => {
+        webview.setUserAgent(chromeUserAgent);
+      });
+
+      webview.addEventListener('new-window', (event) => {
+        event.preventDefault();
+        shell.openExternal(event.url);
+      });
+
+      webview.addEventListener('will-navigate', (event) => {
+        if (event.url.startsWith('http')) {
+          event.preventDefault();
+          shell.openExternal(event.url);
+        }
+      });
+    }
+
+    function editTabName(tabId) {
+      const tabElement = document.querySelector(`#${tabId} .nav-link`);
+
+      if (!tabElement) return;
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = tabElement.textContent;
+      input.classList.add('form-control');
+      input.style.maxWidth = '150px';
+
+      tabElement.textContent = '';
+      tabElement.appendChild(input);
+      input.focus();
+
+      input.addEventListener('blur', () => {
+        tabElement.textContent = input.value;
+        saveTabsState();
+      });
+
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          tabElement.textContent = input.value;
+          saveTabsState();
+        }
+      });
+    }
+
+    function addNewTab(name = `Cuenta ${tabCount + 1}`) {
+      const tabId = `tab${tabCount + 1}`;
+      const contentId = `whatsapp${tabCount + 1}`;
+      tabCount++;
+
+      document.getElementById('accountTabs').insertAdjacentHTML('beforeend', `
+        <li class="nav-item tab-item" id="${tabId}">
+          <a class="nav-link ${tabCount === 1 ? 'active' : ''}" data-bs-toggle="tab" href="#${contentId}" role="tab">
+            <span id="${tabId}-status" class="status-indicator"></span> ${name}
+          </a>
+          <i class="bi bi-pencil-square edit-tab-btn" onclick="editTabName('${tabId}')"></i>
+          <i class="bi bi-x-circle close-tab-btn" onclick="closeTab('${tabId}', '${contentId}')"></i>
+        </li>
+      `);
+
+      document.getElementById('myTabContent').insertAdjacentHTML('beforeend', `
+        <div class="tab-pane fade ${tabCount === 1 ? 'show active' : ''}" id="${contentId}" role="tabpanel">
+          <webview src="https://web.whatsapp.com" partition="persist:whatsapp${tabCount}" style="width: 100%; height: 100%;"></webview>
+        </div>
+      `);
+
+      const webview = document.querySelector(`#${contentId} webview`);
+      applyUserAgent(webview);
+      saveTabsState();
+    }
+
+    document.getElementById('addAccountBtn').addEventListener('click', () => {
+      addNewTab();
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const savedTabs = loadTabsState();
+      savedTabs.forEach((tab) => {
+        addNewTab(tab.name);
+      });
+    });
+
+    ipcRenderer.on('window-resize', () => {
+      document.getElementById('myTabContent').style.height = `${window.innerHeight - 150}px`;
+      document.getElementById('myTabContent').style.width = `${window.innerWidth}px`;
+    });
+
+    ipcRenderer.on('toggle-dark-mode', (event, isDarkMode) => {
+      document.body.classList.toggle('dark-mode', isDarkMode);
+      document.body.classList.toggle('light-mode', !isDarkMode);
+    });
+  </script>
+</body>
+</html>
